@@ -2,23 +2,27 @@
 
 Flow:
 1. initiate  — the manager (负责人) picks two annotators + an arbitrator; the
-   system creates one isolated draft annotation per side. While the
-   arbitration is OPEN, a side's mask is readable/editable only by its own
-   assignee (enforced in annotations.save_mask and the read endpoints).
-2. submit_side — a side freezes its mask. When the second side submits, the
+   system creates one isolated draft annotation per side, each with a random
+   access token. The tokens are returned ONCE in the creation response (for
+   the manager to distribute) and never exposed by the API again.
+2. isolation — while the arbitration is OPEN, every access to a side's mask
+   (read, save, submit) requires its token. A name is never a credential:
+   knowing the other side's assignee name proves nothing.
+3. submit_side — a side freezes its mask. When the second side submits, the
    XOR of the two masks is computed and connected components become the
    difference regions; status moves to ARBITRATING and isolation lifts.
-3. adjudicate — the arbitrator picks side A or B for every difference region.
+4. adjudicate — the arbitrator picks side A or B for every difference region.
    The merged mask (agreed pixels + per-region picks) is written as the
    official annotation's new version (source="arbitration") and goes straight
    to IN_REVIEW. Every pick is stored as an ArbitrationDecision — kept forever,
    even if the arbitration is later voided.
-4. image replacement — OPEN/ARBITRATING arbitrations on the image become VOID
+5. image replacement — OPEN/ARBITRATING arbitrations on the image become VOID
    (see images.replace_image); COMPLETED ones are unaffected and their result
    annotation follows the ordinary stale/migrate/invalidate rules.
 """
 
 import os
+import secrets
 
 import cv2
 import numpy as np
@@ -65,18 +69,26 @@ def get_arbitration(db: Session, arbitration_id: int) -> Arbitration:
     return arb
 
 
-def check_blind_read(ann: Annotation, viewer: str):
-    """While the arbitration is OPEN, a blind annotation is visible only to its
-    own assignee. Once both sides are in (ARBITRATING/COMPLETED/VOID) the
-    isolation is lifted and the records become readable."""
+def _token_ok(provided: str | None, expected: str | None) -> bool:
+    """Constant-time token check; a missing/legacy token never matches."""
+    if not provided or not expected:
+        return False
+    return secrets.compare_digest(provided, expected)
+
+
+def check_blind_read(ann: Annotation, token: str = ""):
+    """While the arbitration is OPEN, a blind annotation is readable only with
+    its side's access token. Once both sides are in (ARBITRATING/COMPLETED/
+    VOID) the isolation is lifted and the records become public."""
     if ann.arbitration_id is None:
         return
     arb = ann.arbitration
-    if arb is not None and arb.status == ArbitrationStatus.OPEN and viewer != ann.assignee:
-        raise ArbitrationPermission(
-            "double-blind isolation: this annotation is visible only to its "
-            "assigned annotator until both sides submit"
-        )
+    if arb is not None and arb.status == ArbitrationStatus.OPEN:
+        if not _token_ok(token, ann.blind_token):
+            raise ArbitrationPermission(
+                "double-blind isolation: this annotation requires its side's "
+                "access token until both sides submit"
+            )
 
 
 def _new_blind_annotation(
@@ -91,6 +103,7 @@ def _new_blind_annotation(
         current_version=0,
         arbitration_id=arb_id,
         arbitration_side=side,
+        blind_token=secrets.token_urlsafe(32),
     )
     db.add(ann)
     db.flush()
@@ -172,7 +185,7 @@ def _diff_regions(mask_a: np.ndarray, mask_b: np.ndarray):
     return regions, labels
 
 
-def submit_side(db: Session, arbitration_id: int, actor: str) -> Arbitration:
+def submit_side(db: Session, arbitration_id: int, actor: str, token: str = "") -> Arbitration:
     arb = _locked_arbitration(db, arbitration_id)
     if arb.status != ArbitrationStatus.OPEN:
         raise ArbitrationConflict(f"cannot submit to a {arb.status.value} arbitration")
@@ -185,6 +198,11 @@ def submit_side(db: Session, arbitration_id: int, actor: str) -> Arbitration:
     if side_ann is None:
         raise ArbitrationPermission(
             f"{actor!r} is not an annotator of arbitration {arbitration_id}"
+        )
+    # the name only selects the side; the token proves the caller may act for it
+    if not _token_ok(token, side_ann.blind_token):
+        raise ArbitrationPermission(
+            "submitting a side requires that side's access token"
         )
     if side_ann.arbitration_submitted:
         raise ArbitrationConflict(f"side {side_ann.arbitration_side} already submitted")
@@ -342,27 +360,34 @@ def void_active_for_image(db: Session, image_id: int) -> list[Arbitration]:
     return active
 
 
-def check_side_mask_access(arb: Arbitration, side: str, viewer: str) -> Annotation:
-    """Return the side's annotation if the viewer may see its mask right now."""
+def check_side_mask_access(arb: Arbitration, side: str, token: str = "") -> Annotation:
+    """Return the side's annotation if the caller may see its mask right now."""
     if side not in ("a", "b"):
         raise ValueError("side must be 'a' or 'b'")
     ann = arb.ann_a if side == "a" else arb.ann_b
-    if arb.status == ArbitrationStatus.OPEN and viewer != ann.assignee:
+    if arb.status == ArbitrationStatus.OPEN and not _token_ok(token, ann.blind_token):
         raise ArbitrationPermission(
-            "double-blind isolation: masks are visible only to their own "
-            "annotator until both sides submit"
+            "double-blind isolation: masks require their side's access token "
+            "until both sides submit"
         )
     return ann
 
 
-def serialize(arb: Arbitration) -> dict:
+def serialize(arb: Arbitration, reveal_tokens: bool = False) -> dict:
+    """Tokens are included only when reveal_tokens=True — used solely by the
+    creation response, so the manager can distribute them. Every other
+    endpoint must use the default."""
+
     def side(ann: Annotation):
-        return {
+        s = {
             "annotation_id": ann.id,
             "assignee": ann.assignee,
             "submitted": ann.arbitration_submitted,
             "submitted_version": ann.arbitration_submitted_version,
         }
+        if reveal_tokens:
+            s["token"] = ann.blind_token
+        return s
 
     return {
         "id": arb.id,

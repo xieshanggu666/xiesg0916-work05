@@ -26,23 +26,24 @@ export const api = {
   imageUrl: (id, rev) => `${BASE}/images/${id}/file${rev ? `?revision=${rev}` : ''}`,
   listAnnotations: (params = {}) =>
     req('/annotations?' + new URLSearchParams(params).toString()),
-  getAnnotation: (id, viewer) =>
-    req(`/annotations/${id}${viewer ? `?viewer=${encodeURIComponent(viewer)}` : ''}`),
+  getAnnotation: (id, token) =>
+    req(`/annotations/${id}${token ? `?token=${encodeURIComponent(token)}` : ''}`),
   createAnnotation: (imageId, label) =>
     req(`/images/${imageId}/annotations`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ label }),
     }),
-  maskUrl: (id, v, viewer) =>
-    `${BASE}/annotations/${id}/versions/${v}/mask.png${viewer ? `?viewer=${encodeURIComponent(viewer)}` : ''}`,
-  saveMask: async (id, blob, author, baseVersion, resolution) => {
+  maskUrl: (id, v, token) =>
+    `${BASE}/annotations/${id}/versions/${v}/mask.png${token ? `?token=${encodeURIComponent(token)}` : ''}`,
+  saveMask: async (id, blob, author, baseVersion, resolution, token) => {
     const fd = new FormData(); fd.append('file', blob, 'mask.png')
     const q = new URLSearchParams({ author, base_version: baseVersion })
     if (resolution) q.set('resolution', resolution)
+    if (token) q.set('token', token)
     const r = await fetch(`${BASE}/annotations/${id}/mask?${q}`, { method: 'PUT', body: fd })
     const body = await r.json()
     if (r.status === 409) { const e = new Error('conflict'); e.status = 409; e.detail = body.detail; throw e }
-    if (!r.ok) throw new Error(JSON.stringify(body.detail))
+    if (!r.ok) { const e = new Error(JSON.stringify(body.detail)); e.status = r.status; e.detail = body.detail; throw e }
     return body
   },
   submit: (id, actor, version) =>
@@ -59,12 +60,12 @@ export const api = {
   getArbitration: (id) => req(`/arbitrations/${id}`),
   createArbitration: (body) =>
     req('/arbitrations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
-  submitArbitrationSide: (id, actor) =>
-    req(`/arbitrations/${id}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actor }) }),
+  submitArbitrationSide: (id, actor, token) =>
+    req(`/arbitrations/${id}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actor, token }) }),
   adjudicate: (id, actor, decisions) =>
     req(`/arbitrations/${id}/adjudicate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actor, decisions }) }),
-  arbitrationMaskUrl: (id, side, viewer) =>
-    `${BASE}/arbitrations/${id}/mask?side=${side}${viewer ? `&viewer=${encodeURIComponent(viewer)}` : ''}`,
+  arbitrationMaskUrl: (id, side, token) =>
+    `${BASE}/arbitrations/${id}/mask?side=${side}${token ? `&token=${encodeURIComponent(token)}` : ''}`,
   listExports: () => req('/exports'),
   getExport: (id) => req(`/exports/${id}`),
   createExport: (name) =>

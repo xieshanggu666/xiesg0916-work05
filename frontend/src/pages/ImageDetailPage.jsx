@@ -17,6 +17,7 @@ export default function ImageDetailPage() {
   const [arbs, setArbs] = useState([])
   const [label, setLabel] = useState('')
   const [arbForm, setArbForm] = useState({ label: '', annotator_a: '', annotator_b: '', arbitrator: '' })
+  const [issuedTokens, setIssuedTokens] = useState(null) // shown once, then dismissed
   const [error, setError] = useState('')
 
   const load = () => {
@@ -33,10 +34,15 @@ export default function ImageDetailPage() {
   const initiate = async () => {
     setError('')
     try {
-      await api.createArbitration({
+      const arb = await api.createArbitration({
         image_id: +id, label: arbForm.label.trim(), initiator: 'boss',
         annotator_a: arbForm.annotator_a.trim(), annotator_b: arbForm.annotator_b.trim(),
         arbitrator: arbForm.arbitrator.trim(),
+      })
+      setIssuedTokens({
+        id: arb.id,
+        a: { assignee: arb.side_a.assignee, token: arb.side_a.token },
+        b: { assignee: arb.side_b.assignee, token: arb.side_b.token },
       })
       setArbForm({ label: '', annotator_a: '', annotator_b: '', arbitrator: '' })
       load()
@@ -98,6 +104,25 @@ export default function ImageDetailPage() {
       </div>
 
       <h2>双盲仲裁</h2>
+      {issuedTokens && (
+        <div className="card" style={{ borderColor: '#2563eb' }}>
+          <h3>仲裁 #{issuedTokens.id} 已创建 — 访问令牌仅此一次显示</h3>
+          <p>请立即复制并分发给对应标注者；令牌是隔离期间访问各侧标注的唯一凭证，系统不会再次展示。</p>
+          <table>
+            <tbody>
+              <tr>
+                <td>甲方（{issuedTokens.a.assignee}）</td>
+                <td><code>{issuedTokens.a.token}</code></td>
+              </tr>
+              <tr>
+                <td>乙方（{issuedTokens.b.assignee}）</td>
+                <td><code>{issuedTokens.b.token}</code></td>
+              </tr>
+            </tbody>
+          </table>
+          <button onClick={() => setIssuedTokens(null)}>我已妥善保存，关闭</button>
+        </div>
+      )}
       <div className="card toolbar">
         <input value={arbForm.label} placeholder="类别名"
           onChange={e => setArbForm(f => ({ ...f, label: e.target.value }))} />

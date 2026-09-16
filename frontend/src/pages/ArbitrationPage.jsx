@@ -72,12 +72,6 @@ export default function ArbitrationPage() {
   useEffect(() => { loadAll().catch(e => setMsg(e.message)) }, [loadAll])
   useEffect(() => { redraw() }, [arb, redraw])
 
-  const submitSide = async (assignee) => {
-    setMsg('')
-    try { await api.submitArbitrationSide(id, assignee); await loadAll() }
-    catch (e) { setMsg(e.message) }
-  }
-
   const submitAdjudication = async () => {
     setMsg('')
     localStorage.setItem('arbitrator', arbitrator)
@@ -113,10 +107,7 @@ export default function ArbitrationPage() {
                 <td>{s.submitted ? `已提交（v${s.submitted_version}）` : '标注中'}</td>
                 <td>
                   {arb.status === 'open' && !s.submitted && (
-                    <>
-                      <Link to={`/annotate/${s.annotation_id}`}>进入标注</Link>{' '}
-                      <button onClick={() => submitSide(s.assignee)}>提交该侧</button>
-                    </>
+                    <Link to={`/annotate/${s.annotation_id}`}>进入标注（需本侧令牌）</Link>
                   )}
                 </td>
               </tr>

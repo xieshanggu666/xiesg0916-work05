@@ -53,6 +53,9 @@ class ArbitrationCreate(BaseModel):
 
 class ArbitrationSubmitRequest(BaseModel):
     actor: str = Field(description="must be one of the two assigned annotators")
+    token: str = Field(
+        default="", description="the side's access token, issued at initiation"
+    )
 
 
 class AdjudicationDecisionIn(BaseModel):

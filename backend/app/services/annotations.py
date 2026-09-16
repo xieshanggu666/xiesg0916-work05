@@ -152,6 +152,7 @@ def save_mask(
     author: str,
     base_version: int,
     resolution: str | None = None,
+    blind_token: str = "",
 ) -> AnnotationVersion:
     # Lock the annotation row so concurrent saves serialize here.
     ann = db.execute(
@@ -167,8 +168,8 @@ def save_mask(
     # content changed, so it must go through review again.
 
     if ann.arbitration_id is not None:
-        # double-blind side: only its own assignee may draw, only while the
-        # arbitration is open, and never again after this side submitted
+        # double-blind side: frozen unless the arbitration is open, and every
+        # write requires the side's access token — a name is not a credential
         if ann.arbitration.status != ArbitrationStatus.OPEN:
             raise BlindIsolationError(
                 "arbitration is no longer open; this blind annotation is frozen"
@@ -177,10 +178,19 @@ def save_mask(
             raise BlindIsolationError(
                 "this side already submitted; the mask is frozen for adjudication"
             )
+        from secrets import compare_digest
+
+        if (
+            not blind_token
+            or not ann.blind_token
+            or not compare_digest(blind_token, ann.blind_token)
+        ):
+            raise BlindIsolationError(
+                "double-blind isolation: editing requires this side's access token"
+            )
         if author != ann.assignee:
             raise BlindIsolationError(
-                "double-blind isolation: only the assigned annotator "
-                f"({ann.assignee}) may edit this annotation"
+                f"author must match the assigned annotator ({ann.assignee})"
             )
 
     new_mask = masks.decode_mask(mask_bytes)

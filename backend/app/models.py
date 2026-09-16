@@ -111,6 +111,9 @@ class Annotation(Base):
     arbitration_side: Mapped[str | None] = mapped_column(String(1), nullable=True)  # a | b
     arbitration_submitted: Mapped[bool] = mapped_column(Boolean, default=False)
     arbitration_submitted_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # capability token gating all access to this blind annotation while its
+    # arbitration is OPEN; issued once at initiation, never re-exposed by the API
+    blind_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow

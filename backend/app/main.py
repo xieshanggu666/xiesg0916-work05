@@ -180,13 +180,13 @@ def _ann_json(ann: Annotation):
 
 @app.get("/annotations/{annotation_id}")
 def get_annotation(
-    annotation_id: int, viewer: str = "", db: Session = Depends(get_db)
+    annotation_id: int, token: str = "", db: Session = Depends(get_db)
 ):
     ann = db.get(Annotation, annotation_id)
     if ann is None:
         raise HTTPException(404, "annotation not found")
     try:
-        arb_svc.check_blind_read(ann, viewer)
+        arb_svc.check_blind_read(ann, token)
     except arb_svc.ArbitrationPermission as e:
         raise HTTPException(403, str(e))
     out = _ann_json(ann)
@@ -205,13 +205,13 @@ def get_annotation(
 
 @app.get("/annotations/{annotation_id}/versions/{version}/mask.png")
 def get_mask(
-    annotation_id: int, version: int, viewer: str = "", db: Session = Depends(get_db)
+    annotation_id: int, version: int, token: str = "", db: Session = Depends(get_db)
 ):
     ann = db.get(Annotation, annotation_id)
     if ann is None:
         raise HTTPException(404, "annotation not found")
     try:
-        arb_svc.check_blind_read(ann, viewer)
+        arb_svc.check_blind_read(ann, token)
     except arb_svc.ArbitrationPermission as e:
         raise HTTPException(403, str(e))
     row = db.execute(
@@ -231,12 +231,13 @@ async def save_mask(
     author: str,
     base_version: int,
     resolution: str | None = None,
+    token: str = "",
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
     data = await file.read()
     try:
-        row = ann_svc.save_mask(db, annotation_id, data, author, base_version, resolution)
+        row = ann_svc.save_mask(db, annotation_id, data, author, base_version, resolution, token)
     except KeyError as e:
         raise HTTPException(404, str(e))
     except ann_svc.ConflictError as e:
@@ -340,7 +341,8 @@ def create_arbitration(body: ArbitrationCreate, db: Session = Depends(get_db)):
         raise HTTPException(404, str(e))
     except ValueError as e:
         raise HTTPException(400, str(e))
-    return arb_svc.serialize(arb)
+    # tokens are revealed exactly once, here, for the manager to distribute
+    return arb_svc.serialize(arb, reveal_tokens=True)
 
 
 @app.get("/arbitrations")
@@ -362,11 +364,11 @@ def get_arbitration(arbitration_id: int, db: Session = Depends(get_db)):
 
 @app.get("/arbitrations/{arbitration_id}/mask")
 def arbitration_side_mask(
-    arbitration_id: int, side: str, viewer: str = "", db: Session = Depends(get_db)
+    arbitration_id: int, side: str, token: str = "", db: Session = Depends(get_db)
 ):
     try:
         arb = arb_svc.get_arbitration(db, arbitration_id)
-        ann = arb_svc.check_side_mask_access(arb, side, viewer)
+        ann = arb_svc.check_side_mask_access(arb, side, token)
     except KeyError as e:
         raise HTTPException(404, str(e))
     except ValueError as e:
@@ -387,7 +389,7 @@ def submit_arbitration_side(
     arbitration_id: int, body: ArbitrationSubmitRequest, db: Session = Depends(get_db)
 ):
     try:
-        arb = arb_svc.submit_side(db, arbitration_id, body.actor)
+        arb = arb_svc.submit_side(db, arbitration_id, body.actor, body.token)
     except KeyError as e:
         raise HTTPException(404, str(e))
     except arb_svc.ArbitrationPermission as e:

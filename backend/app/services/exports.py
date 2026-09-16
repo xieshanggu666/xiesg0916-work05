@@ -35,6 +35,7 @@ from ..models import (
     Annotation,
     AnnotationStatus,
     AnnotationVersion,
+    ArbitrationStatus,
     ExportItemStatus,
     ExportJob,
     ExportJobItem,
@@ -69,6 +70,19 @@ def create_export(
     anns = db.execute(q.order_by(Annotation.id)).scalars().all()
     if not anns:
         raise ValueError("no annotations match the export spec")
+    # a blind annotation under an open arbitration must not leak via export
+    isolated = [
+        a.id
+        for a in anns
+        if a.arbitration_id is not None
+        and a.arbitration is not None
+        and a.arbitration.status == ArbitrationStatus.OPEN
+    ]
+    if isolated:
+        raise ValueError(
+            f"annotations {isolated} are under double-blind isolation; "
+            "they cannot be exported until their arbitration completes"
+        )
 
     job = ExportJob(
         name=name,

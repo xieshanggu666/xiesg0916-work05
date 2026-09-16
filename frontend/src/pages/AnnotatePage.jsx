@@ -16,6 +16,7 @@ export default function AnnotatePage() {
   const [ann, setAnn] = useState(null)
   const [baseVersion, setBaseVersion] = useState(0)
   const [author, setAuthor] = useState(localStorage.getItem('author') || 'annotator')
+  const [token, setToken] = useState(localStorage.getItem(`blind_token_${id}`) || '')
   const [brush, setBrush] = useState(12)
   const [mode, setMode] = useState('draw') // draw | erase
   const [conflict, setConflict] = useState(null)
@@ -26,8 +27,8 @@ export default function AnnotatePage() {
   const maskRef = useRef()   // offscreen canvas holding the editable mask
   const imgRef = useRef()    // offscreen image
   const drawing = useRef(false)
-  const authorRef = useRef(author)
-  authorRef.current = author
+  const tokenRef = useRef(token)
+  tokenRef.current = token
 
   const redraw = useCallback((conflictRegions) => {
     const canvas = canvasRef.current
@@ -63,7 +64,7 @@ export default function AnnotatePage() {
   }, [ann])
 
   const loadAll = useCallback(async () => {
-    const a = await api.getAnnotation(id, authorRef.current)
+    const a = await api.getAnnotation(id, tokenRef.current)
     setAnn(a)
     setLoadError('')
     // a double-blind side belongs to its assignee; lock the identity to it
@@ -71,7 +72,7 @@ export default function AnnotatePage() {
     setBaseVersion(a.current_version)
     const img = await loadImage(api.imageUrl(a.image_id, a.image_revision))
     imgRef.current = img
-    const maskImg = await loadImage(api.maskUrl(id, a.current_version, a.arbitration ? a.assignee : undefined))
+    const maskImg = await loadImage(api.maskUrl(id, a.current_version, a.arbitration ? tokenRef.current : undefined))
     const mc = document.createElement('canvas')
     mc.width = img.width; mc.height = img.height
     mc.getContext('2d').drawImage(maskImg, 0, 0)
@@ -102,7 +103,7 @@ export default function AnnotatePage() {
     const blob = await new Promise(res => maskRef.current.toBlob(res, 'image/png'))
     localStorage.setItem('author', author)
     try {
-      const r = await api.saveMask(id, blob, author, baseVersion, resolution)
+      const r = await api.saveMask(id, blob, author, baseVersion, resolution, tokenRef.current)
       setBaseVersion(r.version)
       setConflict(null)
       setMsg(`已保存为 v${r.version}`)
@@ -125,9 +126,14 @@ export default function AnnotatePage() {
 
   const submitArbitration = async () => {
     try {
-      await api.submitArbitrationSide(ann.arbitration.id, author)
+      await api.submitArbitrationSide(ann.arbitration.id, author, tokenRef.current)
       setMsg('已提交仲裁，结果已冻结等待对方与裁定'); loadAll()
     } catch (e) { setMsg(e.message) }
+  }
+
+  const retryWithToken = () => {
+    localStorage.setItem(`blind_token_${id}`, token)
+    loadAll().catch(e => setLoadError(e.message))
   }
 
   if (loadError && !ann) {
@@ -135,9 +141,13 @@ export default function AnnotatePage() {
       <div>
         <h2>修边 · 标注 #{id}</h2>
         <p className="error">{loadError}</p>
-        <div className="toolbar">
-          <label>作者 <input value={author} onChange={e => setAuthor(e.target.value)} size={8} /></label>
-          <button onClick={() => loadAll().catch(e => setLoadError(e.message))}>以该身份重试</button>
+        <div className="card">
+          <p>该标注处于双盲隔离期，请输入负责人分发的本侧访问令牌（姓名不能作为访问凭证）。</p>
+          <div className="toolbar">
+            <label>访问令牌 <input type="password" value={token}
+              onChange={e => setToken(e.target.value)} size={40} /></label>
+            <button className="primary" onClick={retryWithToken}>验证并进入</button>
+          </div>
         </div>
       </div>
     )

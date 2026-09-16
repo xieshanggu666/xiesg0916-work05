@@ -35,8 +35,10 @@ def _initiate(client, image_id, label="cat", a="alice", b="bob", arb="carol", in
     return r.json()
 
 
-def _submit(client, arb_id, actor):
-    return client.post(f"/arbitrations/{arb_id}/submit", json={"actor": actor})
+def _submit(client, arb_id, actor, token=""):
+    return client.post(
+        f"/arbitrations/{arb_id}/submit", json={"actor": actor, "token": token}
+    )
 
 
 def _adjudicate(client, arb_id, actor, decisions):
@@ -60,14 +62,15 @@ def _mask_pixels(client, ann_id, version):
 
 def _setup_arbitrating(client):
     """An arbitration where both sides drew disjoint rects and submitted."""
-    img = upload = upload_image(client, w=W, h=H)
+    img = upload_image(client, w=W, h=H)
     arb = _initiate(client, img["id"])
     ann_a = arb["side_a"]["annotation_id"]
     ann_b = arb["side_b"]["annotation_id"]
-    save_mask(client, ann_a, make_mask_bytes(W, H, rects=[(5, 5, 8, 8)]), "alice", 0)
-    save_mask(client, ann_b, make_mask_bytes(W, H, rects=[(30, 30, 8, 8)]), "bob", 0)
-    assert _submit(client, arb["id"], "alice").status_code == 200
-    assert _submit(client, arb["id"], "bob").status_code == 200
+    tok_a, tok_b = arb["side_a"]["token"], arb["side_b"]["token"]
+    save_mask(client, ann_a, make_mask_bytes(W, H, rects=[(5, 5, 8, 8)]), "alice", 0, token=tok_a)
+    save_mask(client, ann_b, make_mask_bytes(W, H, rects=[(30, 30, 8, 8)]), "bob", 0, token=tok_b)
+    assert _submit(client, arb["id"], "alice", tok_a).status_code == 200
+    assert _submit(client, arb["id"], "bob", tok_b).status_code == 200
     return arb["id"], ann_a, ann_b
 
 
@@ -134,12 +137,12 @@ def test_merge_all_one_side(client):
 def test_identical_masks_zero_diff_regions(client):
     img = upload_image(client, w=W, h=H)
     arb = _initiate(client, img["id"])
-    for ann_id, author in (
-        (arb["side_a"]["annotation_id"], "alice"),
-        (arb["side_b"]["annotation_id"], "bob"),
-    ):
-        save_mask(client, ann_id, make_mask_bytes(W, H, rects=[(10, 10, 12, 12)]), author, 0)
-        assert _submit(client, arb["id"], author).status_code == 200
+    for side in ("side_a", "side_b"):
+        ann_id = arb[side]["annotation_id"]
+        author = arb[side]["assignee"]
+        token = arb[side]["token"]
+        save_mask(client, ann_id, make_mask_bytes(W, H, rects=[(10, 10, 12, 12)]), author, 0, token=token)
+        assert _submit(client, arb["id"], author, token).status_code == 200
     arb = _get(client, arb["id"])
     assert arb["status"] == "arbitrating"
     assert arb["diff_regions"] == [] and arb["diff_pixels"] == 0
@@ -153,45 +156,72 @@ def test_identical_masks_zero_diff_regions(client):
 # ---------- isolation ----------
 
 
-def test_isolation_blocks_everyone_but_assignee_while_open(client):
+def test_isolation_requires_tokens_not_names(client):
+    """The reported bug: a forged name must NOT unlock the other side's mask.
+    Only the per-side token issued at initiation does."""
     img = upload_image(client, w=W, h=H)
     arb = _initiate(client, img["id"])
     ann_a = arb["side_a"]["annotation_id"]
+    tok_a, tok_b = arb["side_a"]["token"], arb["side_b"]["token"]
 
-    # the other annotator, the arbitrator and anonymous viewers are locked out
-    for viewer in ("bob", "carol", "boss", ""):
-        q = f"?viewer={viewer}" if viewer else ""
-        assert client.get(f"/annotations/{ann_a}{q}").status_code == 403
-        assert client.get(f"/annotations/{ann_a}/versions/0/mask.png{q}").status_code == 403
-        assert client.get(f"/arbitrations/{arb['id']}/mask?side=a&viewer={viewer}").status_code == 403
+    # no token at all -> denied, even when claiming to be alice
+    assert client.get(f"/annotations/{ann_a}").status_code == 403
+    assert client.get(f"/annotations/{ann_a}?viewer=alice").status_code == 403
+    assert client.get(f"/annotations/{ann_a}?token=alice").status_code == 403
+    assert client.get(f"/annotations/{ann_a}/versions/0/mask.png").status_code == 403
+    assert client.get(f"/arbitrations/{arb['id']}/mask?side=a").status_code == 403
 
-    # the assignee gets through
-    assert client.get(f"/annotations/{ann_a}?viewer=alice").status_code == 200
-    assert client.get(f"/arbitrations/{arb['id']}/mask?side=a&viewer=alice").status_code == 200
+    # the OTHER side's token -> denied
+    assert client.get(f"/annotations/{ann_a}?token={tok_b}").status_code == 403
+    assert client.get(f"/arbitrations/{arb['id']}/mask?side=a&token={tok_b}").status_code == 403
+
+    # the side's own token -> allowed
+    assert client.get(f"/annotations/{ann_a}?token={tok_a}").status_code == 200
+    assert client.get(f"/annotations/{ann_a}/versions/0/mask.png?token={tok_a}").status_code == 200
+    assert client.get(f"/arbitrations/{arb['id']}/mask?side=a&token={tok_a}").status_code == 200
 
     # ordinary annotations are unaffected
     other = create_annotation(client, img["id"], "dog")
     assert client.get(f"/annotations/{other['id']}").status_code == 200
 
-    # after both sides submit, isolation lifts
-    save_mask(client, ann_a, make_mask_bytes(W, H, rects=[(5, 5, 8, 8)]), "alice", 0)
-    save_mask(client, arb["side_b"]["annotation_id"], make_mask_bytes(W, H), "bob", 0)
-    _submit(client, arb["id"], "alice")
-    _submit(client, arb["id"], "bob")
+    # after both sides submit, isolation lifts and masks become public
+    save_mask(client, ann_a, make_mask_bytes(W, H, rects=[(5, 5, 8, 8)]), "alice", 0, token=tok_a)
+    save_mask(client, arb["side_b"]["annotation_id"], make_mask_bytes(W, H), "bob", 0, token=tok_b)
+    _submit(client, arb["id"], "alice", tok_a)
+    _submit(client, arb["id"], "bob", tok_b)
     assert client.get(f"/annotations/{ann_a}").status_code == 200
     assert client.get(f"/arbitrations/{arb['id']}/mask?side=a").status_code == 200
+
+
+def test_tokens_are_not_exposed_after_creation(client):
+    img = upload_image(client, w=W, h=H)
+    arb = _initiate(client, img["id"])
+    assert arb["side_a"]["token"] and arb["side_b"]["token"]
+    assert arb["side_a"]["token"] != arb["side_b"]["token"]
+
+    for r in (client.get(f"/arbitrations/{arb['id']}"), client.get("/arbitrations")):
+        assert r.status_code == 200
+        assert "token" not in r.text, "tokens must never appear in later responses"
 
 
 def test_blind_annotation_save_restrictions(client):
     img = upload_image(client, w=W, h=H)
     arb = _initiate(client, img["id"])
     ann_a = arb["side_a"]["annotation_id"]
+    tok_a, tok_b = arb["side_a"]["token"], arb["side_b"]["token"]
 
-    # only the assignee may draw on it
-    r = save_mask(client, ann_a, make_mask_bytes(W, H, rects=[(1, 1, 3, 3)]), "mallory", 0)
-    assert r.status_code == 403
+    # the right name alone is not enough
     r = save_mask(client, ann_a, make_mask_bytes(W, H, rects=[(1, 1, 3, 3)]), "alice", 0)
+    assert r.status_code == 403
+    # the other side's token is not enough either
+    r = save_mask(client, ann_a, make_mask_bytes(W, H, rects=[(1, 1, 3, 3)]), "alice", 0, token=tok_b)
+    assert r.status_code == 403
+    # token + matching author works
+    r = save_mask(client, ann_a, make_mask_bytes(W, H, rects=[(1, 1, 3, 3)]), "alice", 0, token=tok_a)
     assert r.status_code == 200
+    # token but misattributed author is rejected
+    r = save_mask(client, ann_a, make_mask_bytes(W, H, rects=[(2, 2, 3, 3)]), "mallory", 1, token=tok_a)
+    assert r.status_code == 403
 
     # the ordinary review flow is closed for blind annotations
     r = client.post(f"/annotations/{ann_a}/submit", json={"actor": "alice", "expected_version": 1})
@@ -201,18 +231,35 @@ def test_blind_annotation_save_restrictions(client):
     )
     assert r.status_code == 409
 
-    # after submitting, the side is frozen
-    assert _submit(client, arb["id"], "alice").status_code == 200
-    r = save_mask(client, ann_a, make_mask_bytes(W, H, rects=[(2, 2, 3, 3)]), "alice", 1)
+    # after submitting, the side is frozen even for the token holder
+    assert _submit(client, arb["id"], "alice", tok_a).status_code == 200
+    r = save_mask(client, ann_a, make_mask_bytes(W, H, rects=[(2, 2, 3, 3)]), "alice", 1, token=tok_a)
     assert r.status_code == 403
-    assert _submit(client, arb["id"], "alice").status_code == 409  # no double submit
+    assert _submit(client, arb["id"], "alice", tok_a).status_code == 409  # no double submit
 
 
-def test_submit_requires_annotator(client):
+def test_submit_requires_side_token(client):
     img = upload_image(client, w=W, h=H)
     arb = _initiate(client, img["id"])
-    assert _submit(client, arb["id"], "mallory").status_code == 403
+    tok_a, tok_b = arb["side_a"]["token"], arb["side_b"]["token"]
+
+    assert _submit(client, arb["id"], "mallory").status_code == 403  # not an annotator
     assert _submit(client, arb["id"], "carol").status_code == 403  # arbitrator != annotator
+    # a forged name without the token cannot freeze the other side's work
+    assert _submit(client, arb["id"], "alice").status_code == 403
+    assert _submit(client, arb["id"], "alice", tok_b).status_code == 403
+    assert _submit(client, arb["id"], "alice", tok_a).status_code == 200
+    arb = _get(client, arb["id"])
+    assert arb["side_a"]["submitted"] and not arb["side_b"]["submitted"]
+
+
+def test_open_blind_annotation_cannot_be_exported(client):
+    img = upload_image(client, w=W, h=H)
+    arb = _initiate(client, img["id"])
+    ann_a = arb["side_a"]["annotation_id"]
+    r = client.post("/exports", json={"name": "leak", "annotation_ids": [ann_a]})
+    assert r.status_code == 400
+    assert "isolation" in r.json()["detail"]
 
 
 # ---------- adjudication rules ----------
@@ -243,7 +290,7 @@ def test_cannot_adjudicate_before_both_submit(client):
     img = upload_image(client, w=W, h=H)
     arb = _initiate(client, img["id"])
     assert _adjudicate(client, arb["id"], "carol", []).status_code == 409
-    _submit(client, arb["id"], "alice")
+    _submit(client, arb["id"], "alice", arb["side_a"]["token"])
     assert _adjudicate(client, arb["id"], "carol", []).status_code == 409
 
 
@@ -277,19 +324,23 @@ def test_concurrent_adjudicate_exactly_one_wins(client):
 def test_concurrent_side_submits_compute_diff_once(client):
     img = upload_image(client, w=W, h=H)
     arb = _initiate(client, img["id"])
-    save_mask(client, arb["side_a"]["annotation_id"], make_mask_bytes(W, H, rects=[(5, 5, 8, 8)]), "alice", 0)
-    save_mask(client, arb["side_b"]["annotation_id"], make_mask_bytes(W, H, rects=[(30, 30, 8, 8)]), "bob", 0)
+    tok_a, tok_b = arb["side_a"]["token"], arb["side_b"]["token"]
+    save_mask(client, arb["side_a"]["annotation_id"], make_mask_bytes(W, H, rects=[(5, 5, 8, 8)]), "alice", 0, token=tok_a)
+    save_mask(client, arb["side_b"]["annotation_id"], make_mask_bytes(W, H, rects=[(30, 30, 8, 8)]), "bob", 0, token=tok_b)
 
     errors = []
 
-    def act(actor):
+    def act(actor, token):
         with SessionLocal() as db:
             try:
-                arb_svc.submit_side(db, arb["id"], actor)
+                arb_svc.submit_side(db, arb["id"], actor, token)
             except Exception as e:  # noqa: BLE001
                 errors.append(e)
 
-    threads = [threading.Thread(target=act, args=(a,)) for a in ("alice", "bob")]
+    threads = [
+        threading.Thread(target=act, args=("alice", tok_a)),
+        threading.Thread(target=act, args=("bob", tok_b)),
+    ]
     for t in threads:
         t.start()
     for t in threads:
@@ -331,8 +382,12 @@ def test_replace_voids_incomplete_arbitration(client):
     arb_open = _initiate(client, img["id"], label="cat")
     arb_mid = _initiate(client, img["id"], label="dog")
     # second arbitration gets one side submitted before the replacement
-    save_mask(client, arb_mid["side_a"]["annotation_id"], make_mask_bytes(W, H, rects=[(5, 5, 8, 8)]), "alice", 0)
-    _submit(client, arb_mid["id"], "alice")
+    save_mask(
+        client, arb_mid["side_a"]["annotation_id"],
+        make_mask_bytes(W, H, rects=[(5, 5, 8, 8)]), "alice", 0,
+        token=arb_mid["side_a"]["token"],
+    )
+    _submit(client, arb_mid["id"], "alice", arb_mid["side_a"]["token"])
 
     r = _replace(client, img["id"])
     assert r.status_code == 200
