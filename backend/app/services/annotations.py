@@ -13,7 +13,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import MASK_DIR
-from ..models import Annotation, AnnotationStatus, AnnotationVersion
+from ..models import (
+    Annotation,
+    AnnotationStatus,
+    AnnotationVersion,
+    ArbitrationStatus,
+)
 from ..schemas import ConflictInfo
 from . import masks
 
@@ -31,6 +36,10 @@ class StaleAnnotationError(Exception):
 
 class InvalidStateError(Exception):
     pass
+
+
+class BlindIsolationError(Exception):
+    """A double-blind rule was violated (wrong author / frozen side)."""
 
 
 def _mask_path(annotation_id: int, version: int) -> str:
@@ -156,6 +165,23 @@ def save_mask(
         )
     # Editing an approved annotation demotes it back to draft: the approved
     # content changed, so it must go through review again.
+
+    if ann.arbitration_id is not None:
+        # double-blind side: only its own assignee may draw, only while the
+        # arbitration is open, and never again after this side submitted
+        if ann.arbitration.status != ArbitrationStatus.OPEN:
+            raise BlindIsolationError(
+                "arbitration is no longer open; this blind annotation is frozen"
+            )
+        if ann.arbitration_submitted:
+            raise BlindIsolationError(
+                "this side already submitted; the mask is frozen for adjudication"
+            )
+        if author != ann.assignee:
+            raise BlindIsolationError(
+                "double-blind isolation: only the assigned annotator "
+                f"({ann.assignee}) may edit this annotation"
+            )
 
     new_mask = masks.decode_mask(mask_bytes)
     image = ann.image

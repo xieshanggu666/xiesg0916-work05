@@ -26,13 +26,15 @@ export const api = {
   imageUrl: (id, rev) => `${BASE}/images/${id}/file${rev ? `?revision=${rev}` : ''}`,
   listAnnotations: (params = {}) =>
     req('/annotations?' + new URLSearchParams(params).toString()),
-  getAnnotation: (id) => req(`/annotations/${id}`),
+  getAnnotation: (id, viewer) =>
+    req(`/annotations/${id}${viewer ? `?viewer=${encodeURIComponent(viewer)}` : ''}`),
   createAnnotation: (imageId, label) =>
     req(`/images/${imageId}/annotations`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ label }),
     }),
-  maskUrl: (id, v) => `${BASE}/annotations/${id}/versions/${v}/mask.png`,
+  maskUrl: (id, v, viewer) =>
+    `${BASE}/annotations/${id}/versions/${v}/mask.png${viewer ? `?viewer=${encodeURIComponent(viewer)}` : ''}`,
   saveMask: async (id, blob, author, baseVersion, resolution) => {
     const fd = new FormData(); fd.append('file', blob, 'mask.png')
     const q = new URLSearchParams({ author, base_version: baseVersion })
@@ -52,6 +54,17 @@ export const api = {
   migrate: (id, actor) =>
     req(`/annotations/${id}/migrate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actor }) }),
   invalidate: (id) => req(`/annotations/${id}/invalidate`, { method: 'POST' }),
+  listArbitrations: (imageId) =>
+    req(`/arbitrations${imageId ? `?image_id=${imageId}` : ''}`),
+  getArbitration: (id) => req(`/arbitrations/${id}`),
+  createArbitration: (body) =>
+    req('/arbitrations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+  submitArbitrationSide: (id, actor) =>
+    req(`/arbitrations/${id}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actor }) }),
+  adjudicate: (id, actor, decisions) =>
+    req(`/arbitrations/${id}/adjudicate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ actor, decisions }) }),
+  arbitrationMaskUrl: (id, side, viewer) =>
+    `${BASE}/arbitrations/${id}/mask?side=${side}${viewer ? `&viewer=${encodeURIComponent(viewer)}` : ''}`,
   listExports: () => req('/exports'),
   getExport: (id) => req(`/exports/${id}`),
   createExport: (name) =>

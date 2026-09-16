@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     Enum,
     ForeignKey,
@@ -27,6 +28,13 @@ class AnnotationStatus(str, enum.Enum):
     CHANGES_REQUESTED = "changes_requested"
     STALE = "stale"  # image was replaced; must be migrated or invalidated
     INVALIDATED = "invalidated"
+
+
+class ArbitrationStatus(str, enum.Enum):
+    OPEN = "open"  # double-blind annotation in progress
+    ARBITRATING = "arbitrating"  # both sides submitted; diff computed, awaiting adjudication
+    COMPLETED = "completed"  # adjudicated; official mask version entered review
+    VOID = "void"  # image replaced before completion; records kept
 
 
 class RegionStatus(str, enum.Enum):
@@ -93,12 +101,25 @@ class Annotation(Base):
     )
     current_version: Mapped[int] = mapped_column(Integer, default=0)
     assignee: Mapped[str] = mapped_column(String(64), default="")
+    # double-blind arbitration membership (NULL for ordinary annotations)
+    arbitration_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "arbitrations.id", use_alter=True, name="fk_annotations_arbitration_id"
+        ),
+        nullable=True,
+    )
+    arbitration_side: Mapped[str | None] = mapped_column(String(1), nullable=True)  # a | b
+    arbitration_submitted: Mapped[bool] = mapped_column(Boolean, default=False)
+    arbitration_submitted_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow, onupdate=utcnow
     )
 
     image: Mapped[Image] = relationship(back_populates="annotations")
+    arbitration: Mapped["Arbitration | None"] = relationship(
+        foreign_keys=[arbitration_id]
+    )
     versions: Mapped[list["AnnotationVersion"]] = relationship(
         back_populates="annotation", cascade="all, delete-orphan"
     )
@@ -155,6 +176,63 @@ class RejectionRegion(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     annotation: Mapped[Annotation] = relationship(back_populates="rejection_regions")
+
+
+class Arbitration(Base):
+    """A double-blind annotation task: two annotators draw independently on
+    isolated annotations; once both submit, their masks are diffed and an
+    arbitrator picks a side per difference region. The merged result becomes
+    the official mask version and enters the normal review flow."""
+
+    __tablename__ = "arbitrations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    image_id: Mapped[int] = mapped_column(ForeignKey("images.id"))
+    image_revision: Mapped[int] = mapped_column(Integer)  # revision both sides draw against
+    label: Mapped[str] = mapped_column(String(128))
+    initiator: Mapped[str] = mapped_column(String(64))  # 负责人
+    arbitrator: Mapped[str] = mapped_column(String(64))
+    status: Mapped[ArbitrationStatus] = mapped_column(
+        Enum(ArbitrationStatus), default=ArbitrationStatus.OPEN
+    )
+    ann_a_id: Mapped[int | None] = mapped_column(ForeignKey("annotations.id"), nullable=True)
+    ann_b_id: Mapped[int | None] = mapped_column(ForeignKey("annotations.id"), nullable=True)
+    result_annotation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("annotations.id"), nullable=True
+    )
+    diff_regions: Mapped[list | None] = mapped_column(JSON, nullable=True)  # computed at 2nd submit
+    diff_pixels: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    ann_a: Mapped[Annotation] = relationship(foreign_keys=[ann_a_id])
+    ann_b: Mapped[Annotation] = relationship(foreign_keys=[ann_b_id])
+    result_annotation: Mapped[Annotation | None] = relationship(
+        foreign_keys=[result_annotation_id]
+    )
+    decisions: Mapped[list["ArbitrationDecision"]] = relationship(
+        back_populates="arbitration", cascade="all, delete-orphan"
+    )
+
+
+class ArbitrationDecision(Base):
+    """One adjudicated difference region. Never deleted — voided arbitrations
+    keep their records for audit."""
+
+    __tablename__ = "arbitration_decisions"
+    __table_args__ = (UniqueConstraint("arbitration_id", "region_index"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    arbitration_id: Mapped[int] = mapped_column(ForeignKey("arbitrations.id"))
+    region_index: Mapped[int] = mapped_column(Integer)
+    region: Mapped[dict] = mapped_column(JSON)  # bbox {x, y, w, h, pixels}
+    pick: Mapped[str] = mapped_column(String(1))  # a | b
+    picked_author: Mapped[str] = mapped_column(String(64))
+    actor: Mapped[str] = mapped_column(String(64))  # arbitrator who ruled
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    arbitration: Mapped[Arbitration] = relationship(back_populates="decisions")
 
 
 class ExportJob(Base):

@@ -16,6 +16,9 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .badge.failed { background: #fecaca; }
 .badge.completed { background: #bbf7d0; }
 .badge.running { background: #bfdbfe; }
+.badge.open { background: #bfdbfe; }
+.badge.arbitrating { background: #fef08a; }
+.badge.void { background: #e2e8f0; }
 table { border-collapse: collapse; width: 100%; }
 th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
 .canvas-wrap { position: relative; display: inline-block; border: 1px solid #94a3b8; background: #fff; }

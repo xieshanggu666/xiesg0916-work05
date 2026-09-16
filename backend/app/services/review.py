@@ -33,6 +33,11 @@ def _locked_annotation(db: Session, annotation_id: int) -> Annotation:
     ).scalar_one_or_none()
     if ann is None:
         raise KeyError(f"annotation {annotation_id} not found")
+    if ann.arbitration_id is not None:
+        raise ReviewConflict(
+            "double-blind annotation is managed by its arbitration; "
+            "use the arbitration submit/adjudicate flow instead"
+        )
     return ann
 
 

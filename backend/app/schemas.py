@@ -42,6 +42,29 @@ class MigrateRequest(BaseModel):
     actor: str
 
 
+class ArbitrationCreate(BaseModel):
+    image_id: int
+    label: str
+    initiator: str = Field(description="负责人 who starts the double-blind task")
+    annotator_a: str
+    annotator_b: str
+    arbitrator: str
+
+
+class ArbitrationSubmitRequest(BaseModel):
+    actor: str = Field(description="must be one of the two assigned annotators")
+
+
+class AdjudicationDecisionIn(BaseModel):
+    region_index: int
+    pick: str = Field(description="'a' or 'b' — which side wins this region")
+
+
+class AdjudicateRequest(BaseModel):
+    actor: str = Field(description="must be the arbitrator")
+    decisions: list[AdjudicationDecisionIn]
+
+
 class ExportCreate(BaseModel):
     name: str
     annotation_ids: list[int] | None = None  # default: all approved annotations

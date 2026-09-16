@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from app.db import Base, engine
 from app.main import app
@@ -30,8 +31,10 @@ def _schema():
 def _clean_tables():
     yield
     with engine.begin() as conn:
-        for table in reversed(Base.metadata.sorted_tables):
-            conn.execute(table.delete())
+        # annotations <-> arbitrations have a circular FK; one CASCADE
+        # truncate handles cycles that per-table DELETEs cannot order
+        names = ", ".join(t.name for t in Base.metadata.sorted_tables)
+        conn.execute(text(f"TRUNCATE {names} RESTART IDENTITY CASCADE"))
 
 
 @pytest.fixture()

@@ -54,8 +54,11 @@ def create_image(db: Session, name: str, data: bytes) -> Image:
     return image
 
 
-def replace_image(db: Session, image_id: int, data: bytes) -> tuple[Image, list[Annotation]]:
-    """Replace the raw image. Returns the image and the annotations that went stale."""
+def replace_image(
+    db: Session, image_id: int, data: bytes
+) -> tuple[Image, list[Annotation], list]:
+    """Replace the raw image. Returns the image, the annotations that went
+    stale, and the arbitrations that were voided."""
     image = db.execute(
         select(Image).where(Image.id == image_id).with_for_update()
     ).scalar_one_or_none()
@@ -94,9 +97,15 @@ def replace_image(db: Session, image_id: int, data: bytes) -> tuple[Image, list[
     for ann in stale:
         ann.status = AnnotationStatus.STALE
 
+    # incomplete arbitrations die with the revision they were drawn against;
+    # their submissions and any decision records stay in the database
+    from . import arbitration as arb_svc
+
+    voided = arb_svc.void_active_for_image(db, image_id)
+
     db.commit()
     db.refresh(image)
-    return image, stale
+    return image, stale, voided
 
 
 def migrate_annotation(db: Session, annotation_id: int, actor: str) -> AnnotationVersion:
@@ -108,6 +117,11 @@ def migrate_annotation(db: Session, annotation_id: int, actor: str) -> Annotatio
         raise KeyError(f"annotation {annotation_id} not found")
     if ann.status != AnnotationStatus.STALE:
         raise ValueError(f"annotation is {ann.status.value}, not stale")
+    if ann.arbitration_id is not None:
+        raise ValueError(
+            "blind arbitration annotations cannot be migrated; "
+            "the arbitration is void — invalidate them instead"
+        )
 
     image = ann.image
     latest = db.execute(

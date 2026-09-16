@@ -11,20 +11,25 @@ from .db import Base, engine, get_db
 from .models import (
     Annotation,
     AnnotationVersion,
+    Arbitration,
     ExportJob,
     Image,
     ImageRevision,
     RegionStatus,
 )
 from .schemas import (
+    AdjudicateRequest,
     AnnotationCreate,
     ApproveRequest,
+    ArbitrationCreate,
+    ArbitrationSubmitRequest,
     ExportCreate,
     MigrateRequest,
     RejectRequest,
     SubmitRequest,
 )
 from .services import annotations as ann_svc
+from .services import arbitration as arb_svc
 from .services import exports as exp_svc
 from .services import images as img_svc
 from .services import review as rev_svc
@@ -105,7 +110,7 @@ def image_file(image_id: int, revision: int | None = None, db: Session = Depends
 async def replace_image(image_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     data = await file.read()
     try:
-        image, stale = img_svc.replace_image(db, image_id, data)
+        image, stale, voided = img_svc.replace_image(db, image_id, data)
     except KeyError as e:
         raise HTTPException(404, str(e))
     except ValueError as e:
@@ -113,6 +118,7 @@ async def replace_image(image_id: int, file: UploadFile = File(...), db: Session
     return {
         "image": _image_json(db, image),
         "stale_annotation_ids": [a.id for a in stale],
+        "voided_arbitration_ids": [a.id for a in voided],
         "message": "annotations on the old revision are now stale; migrate or invalidate each explicitly",
     }
 
@@ -150,6 +156,15 @@ def _ann_json(ann: Annotation):
         "status": ann.status.value,
         "current_version": ann.current_version,
         "assignee": ann.assignee,
+        "arbitration": (
+            {
+                "id": ann.arbitration_id,
+                "side": ann.arbitration_side,
+                "submitted": ann.arbitration_submitted,
+            }
+            if ann.arbitration_id is not None
+            else None
+        ),
         "open_regions": [
             {
                 "id": r.id,
@@ -164,10 +179,16 @@ def _ann_json(ann: Annotation):
 
 
 @app.get("/annotations/{annotation_id}")
-def get_annotation(annotation_id: int, db: Session = Depends(get_db)):
+def get_annotation(
+    annotation_id: int, viewer: str = "", db: Session = Depends(get_db)
+):
     ann = db.get(Annotation, annotation_id)
     if ann is None:
         raise HTTPException(404, "annotation not found")
+    try:
+        arb_svc.check_blind_read(ann, viewer)
+    except arb_svc.ArbitrationPermission as e:
+        raise HTTPException(403, str(e))
     out = _ann_json(ann)
     out["versions"] = [
         {
@@ -183,7 +204,16 @@ def get_annotation(annotation_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/annotations/{annotation_id}/versions/{version}/mask.png")
-def get_mask(annotation_id: int, version: int, db: Session = Depends(get_db)):
+def get_mask(
+    annotation_id: int, version: int, viewer: str = "", db: Session = Depends(get_db)
+):
+    ann = db.get(Annotation, annotation_id)
+    if ann is None:
+        raise HTTPException(404, "annotation not found")
+    try:
+        arb_svc.check_blind_read(ann, viewer)
+    except arb_svc.ArbitrationPermission as e:
+        raise HTTPException(403, str(e))
     row = db.execute(
         select(AnnotationVersion).where(
             AnnotationVersion.annotation_id == annotation_id,
@@ -221,6 +251,8 @@ async def save_mask(
         )
     except ann_svc.StaleAnnotationError as e:
         raise HTTPException(409, {"message": str(e), "kind": "stale"})
+    except ann_svc.BlindIsolationError as e:
+        raise HTTPException(403, str(e))
     except ann_svc.InvalidStateError as e:
         raise HTTPException(400, str(e))
     return {"annotation_id": annotation_id, "version": row.version, "author": row.author}
@@ -287,6 +319,99 @@ def invalidate(annotation_id: int, db: Session = Depends(get_db)):
     except ValueError as e:
         raise HTTPException(409, str(e))
     return _ann_json(ann)
+
+
+# ---------- double-blind arbitration ----------
+
+
+@app.post("/arbitrations", status_code=201)
+def create_arbitration(body: ArbitrationCreate, db: Session = Depends(get_db)):
+    try:
+        arb = arb_svc.initiate(
+            db,
+            image_id=body.image_id,
+            label=body.label,
+            initiator=body.initiator,
+            annotator_a=body.annotator_a,
+            annotator_b=body.annotator_b,
+            arbitrator=body.arbitrator,
+        )
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return arb_svc.serialize(arb)
+
+
+@app.get("/arbitrations")
+def list_arbitrations(image_id: int | None = None, db: Session = Depends(get_db)):
+    q = select(Arbitration).order_by(Arbitration.id)
+    if image_id is not None:
+        q = q.where(Arbitration.image_id == image_id)
+    return [arb_svc.serialize(a) for a in db.execute(q).scalars().all()]
+
+
+@app.get("/arbitrations/{arbitration_id}")
+def get_arbitration(arbitration_id: int, db: Session = Depends(get_db)):
+    try:
+        arb = arb_svc.get_arbitration(db, arbitration_id)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    return arb_svc.serialize(arb)
+
+
+@app.get("/arbitrations/{arbitration_id}/mask")
+def arbitration_side_mask(
+    arbitration_id: int, side: str, viewer: str = "", db: Session = Depends(get_db)
+):
+    try:
+        arb = arb_svc.get_arbitration(db, arbitration_id)
+        ann = arb_svc.check_side_mask_access(arb, side, viewer)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except arb_svc.ArbitrationPermission as e:
+        raise HTTPException(403, str(e))
+    row = db.execute(
+        select(AnnotationVersion).where(
+            AnnotationVersion.annotation_id == ann.id,
+            AnnotationVersion.version == ann.current_version,
+        )
+    ).scalar_one()
+    return FileResponse(row.mask_path, media_type="image/png")
+
+
+@app.post("/arbitrations/{arbitration_id}/submit")
+def submit_arbitration_side(
+    arbitration_id: int, body: ArbitrationSubmitRequest, db: Session = Depends(get_db)
+):
+    try:
+        arb = arb_svc.submit_side(db, arbitration_id, body.actor)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except arb_svc.ArbitrationPermission as e:
+        raise HTTPException(403, str(e))
+    except arb_svc.ArbitrationConflict as e:
+        raise HTTPException(409, str(e))
+    return arb_svc.serialize(arb)
+
+
+@app.post("/arbitrations/{arbitration_id}/adjudicate")
+def adjudicate_arbitration(
+    arbitration_id: int, body: AdjudicateRequest, db: Session = Depends(get_db)
+):
+    try:
+        arb = arb_svc.adjudicate(db, arbitration_id, body.actor, body.decisions)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    except arb_svc.ArbitrationPermission as e:
+        raise HTTPException(403, str(e))
+    except arb_svc.ArbitrationConflict as e:
+        raise HTTPException(409, str(e))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return arb_svc.serialize(arb)
 
 
 # ---------- exports ----------

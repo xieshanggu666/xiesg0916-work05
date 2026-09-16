@@ -11,3 +11,158 @@
 2026-09-16 01:30:46.106 UTC [490] LOG:  checkpoint complete: wrote 133 buffers (0.8%); 0 WAL file(s) added, 0 removed, 0 recycled; write=13.601 s, sync=0.011 s, total=13.628 s; sync files=120, longest=0.002 s, average=0.001 s; distance=976 kB, estimate=9262 kB
 2026-09-16 01:35:32.154 UTC [490] LOG:  checkpoint starting: time
 2026-09-16 01:35:44.040 UTC [490] LOG:  checkpoint complete: wrote 116 buffers (0.7%); 0 WAL file(s) added, 0 removed, 1 recycled; write=11.813 s, sync=0.060 s, total=11.887 s; sync files=117, longest=0.004 s, average=0.001 s; distance=757 kB, estimate=8412 kB
+2026-09-16 02:06:47.386 UTC [158] LOG:  starting PostgreSQL 15.18 (Debian 15.18-0+deb12u1) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit
+2026-09-16 02:06:47.386 UTC [158] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2026-09-16 02:06:47.393 UTC [158] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-09-16 02:06:47.399 UTC [161] LOG:  database system was interrupted; last known up at 2026-09-16 01:35:44 UTC
+2026-09-16 02:06:47.751 UTC [161] LOG:  database system was not properly shut down; automatic recovery in progress
+2026-09-16 02:06:47.755 UTC [161] LOG:  redo starts at 0/20A3B60
+2026-09-16 02:06:47.755 UTC [161] LOG:  invalid record length at 0/20A3C48: wanted 24, got 0
+2026-09-16 02:06:47.755 UTC [161] LOG:  redo done at 0/20A3C10 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+2026-09-16 02:06:47.759 UTC [159] LOG:  checkpoint starting: end-of-recovery immediate wait
+2026-09-16 02:06:47.762 UTC [159] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.001 s, sync=0.001 s, total=0.003 s; sync files=2, longest=0.001 s, average=0.001 s; distance=0 kB, estimate=0 kB
+2026-09-16 02:06:47.763 UTC [158] LOG:  database system is ready to accept connections
+2026-09-16 02:11:47.766 UTC [159] LOG:  checkpoint starting: time
+2026-09-16 02:11:47.878 UTC [159] LOG:  checkpoint complete: wrote 1 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.104 s, sync=0.002 s, total=0.113 s; sync files=1, longest=0.002 s, average=0.002 s; distance=7 kB, estimate=7 kB
+2026-09-16 03:34:04.465 UTC [959] ERROR:  constraint "fk_annotations_arbitration_id" of relation "annotations" does not exist
+2026-09-16 03:34:04.465 UTC [959] STATEMENT:  ALTER TABLE annotations DROP CONSTRAINT fk_annotations_arbitration_id
+2026-09-16 03:35:10.823 UTC [987] ERROR:  constraint "fk_annotations_arbitration_id" of relation "annotations" does not exist
+2026-09-16 03:35:10.823 UTC [987] STATEMENT:  ALTER TABLE annotations DROP CONSTRAINT fk_annotations_arbitration_id
+2026-09-16 03:36:49.068 UTC [159] LOG:  checkpoint starting: time
+2026-09-16 03:37:02.523 UTC [159] LOG:  checkpoint complete: wrote 130 buffers (0.8%); 0 WAL file(s) added, 0 removed, 0 recycled; write=13.395 s, sync=0.043 s, total=13.456 s; sync files=164, longest=0.002 s, average=0.001 s; distance=1636 kB, estimate=1636 kB
+2026-09-16 03:38:09.544 UTC [1527] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:09.544 UTC [1527] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:09.544 UTC [1527] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (1, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:09.544201+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:38:09.924 UTC [1527] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:09.924 UTC [1527] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:09.924 UTC [1527] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (2, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:09.924659+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:38:10.243 UTC [1527] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:10.243 UTC [1527] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:10.243 UTC [1527] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (3, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:10.243340+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:38:10.543 UTC [1527] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:10.543 UTC [1527] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:10.543 UTC [1527] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (4, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:10.543217+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:38:10.876 UTC [1527] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:10.876 UTC [1527] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:10.876 UTC [1527] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (5, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:10.876468+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:38:11.182 UTC [1527] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:11.182 UTC [1527] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:11.182 UTC [1527] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (6, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:11.182661+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:38:11.523 UTC [1527] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:11.523 UTC [1527] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:11.523 UTC [1527] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (7, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:11.522940+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:38:11.822 UTC [1527] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:11.822 UTC [1527] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:11.822 UTC [1527] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (8, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:11.822881+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:38:12.165 UTC [1527] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:12.165 UTC [1527] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:12.165 UTC [1527] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (9, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:12.165483+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:38:12.475 UTC [1527] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:12.475 UTC [1527] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:12.475 UTC [1527] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (10, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:12.475436+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:38:12.828 UTC [1527] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:12.828 UTC [1527] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:12.828 UTC [1527] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (12, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:12.827984+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:38:13.134 UTC [1527] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:13.134 UTC [1527] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:13.134 UTC [1527] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (13, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:13.134376+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:38:13.477 UTC [1527] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:13.477 UTC [1527] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:13.477 UTC [1527] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (14, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:13.477782+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:38:34.889 UTC [1614] ERROR:  insert or update on table "arbitrations" violates foreign key constraint "arbitrations_ann_a_id_fkey"
+2026-09-16 03:38:34.889 UTC [1614] DETAIL:  Key (ann_a_id)=(0) is not present in table "annotations".
+2026-09-16 03:38:34.889 UTC [1614] STATEMENT:  INSERT INTO arbitrations (image_id, image_revision, label, initiator, arbitrator, status, ann_a_id, ann_b_id, result_annotation_id, diff_pixels, created_at, completed_at, voided_at) VALUES (1, 1, 'cat', 'boss', 'carol', 'OPEN', 0, 0, NULL, 0, '2026-09-16T03:38:34.889286+00:00'::timestamptz, NULL, NULL) RETURNING arbitrations.id
+2026-09-16 03:39:39.666 UTC [1647] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:39.666 UTC [1647] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:39.666 UTC [1647] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:39:39.792 UTC [1647] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:39.792 UTC [1647] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:39.792 UTC [1647] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:39:39.879 UTC [1647] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:39.879 UTC [1647] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:39.879 UTC [1647] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:39:40.007 UTC [1647] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:40.007 UTC [1647] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:40.007 UTC [1647] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:39:40.109 UTC [1647] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:40.109 UTC [1647] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:40.109 UTC [1647] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:39:40.179 UTC [1647] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:40.179 UTC [1647] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:40.179 UTC [1647] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:39:40.287 UTC [1647] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:40.287 UTC [1647] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:40.287 UTC [1647] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:39:40.362 UTC [1647] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:40.362 UTC [1647] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:40.362 UTC [1647] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:39:40.470 UTC [1841] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:40.470 UTC [1841] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:40.470 UTC [1841] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:39:40.576 UTC [1840] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:40.576 UTC [1840] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:40.576 UTC [1840] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:39:40.643 UTC [1841] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:40.643 UTC [1841] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:40.643 UTC [1841] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:39:40.760 UTC [1841] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:40.760 UTC [1841] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:40.760 UTC [1841] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:39:40.887 UTC [1647] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:40.887 UTC [1647] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:40.887 UTC [1647] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:39:40.963 UTC [1840] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:39:40.963 UTC [1840] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:39:40.963 UTC [1840] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:12.189 UTC [1984] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:12.189 UTC [1984] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:12.189 UTC [1984] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:12.315 UTC [1984] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:12.315 UTC [1984] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:12.315 UTC [1984] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:12.402 UTC [1984] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:12.402 UTC [1984] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:12.402 UTC [1984] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:12.527 UTC [1984] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:12.527 UTC [1984] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:12.527 UTC [1984] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:12.621 UTC [1984] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:12.621 UTC [1984] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:12.621 UTC [1984] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:12.690 UTC [1984] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:12.690 UTC [1984] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:12.690 UTC [1984] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:12.797 UTC [1984] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:12.797 UTC [1984] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:12.797 UTC [1984] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:12.867 UTC [1984] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:12.867 UTC [1984] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:12.867 UTC [1984] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:12.975 UTC [1984] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:12.975 UTC [1984] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:12.975 UTC [1984] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:13.083 UTC [2177] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:13.083 UTC [2177] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:13.083 UTC [2177] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:13.151 UTC [1984] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:13.151 UTC [1984] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:13.151 UTC [1984] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:13.273 UTC [1984] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:13.273 UTC [1984] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:13.273 UTC [1984] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:13.396 UTC [2178] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:13.396 UTC [2178] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:13.396 UTC [2178] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:40:13.471 UTC [2177] ERROR:  update or delete on table "arbitrations" violates foreign key constraint "fk_annotations_arbitration_id" on table "annotations"
+2026-09-16 03:40:13.471 UTC [2177] DETAIL:  Key (id)=(1) is still referenced from table "annotations".
+2026-09-16 03:40:13.471 UTC [2177] STATEMENT:  DELETE FROM arbitrations
+2026-09-16 03:41:49.628 UTC [159] LOG:  checkpoint starting: time
+2026-09-16 03:42:06.682 UTC [159] LOG:  checkpoint complete: wrote 167 buffers (1.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=16.977 s, sync=0.056 s, total=17.055 s; sync files=318, longest=0.002 s, average=0.001 s; distance=2638 kB, estimate=2638 kB
+2026-09-16 03:46:50.068 UTC [159] LOG:  checkpoint starting: time
+2026-09-16 03:47:10.073 UTC [159] LOG:  checkpoint complete: wrote 189 buffers (1.2%); 0 WAL file(s) added, 0 removed, 0 recycled; write=19.676 s, sync=0.187 s, total=20.005 s; sync files=4101, longest=0.005 s, average=0.001 s; distance=4597 kB, estimate=4597 kB
+2026-09-16 03:56:50.262 UTC [159] LOG:  checkpoint starting: time
+2026-09-16 03:56:59.173 UTC [159] LOG:  checkpoint complete: wrote 87 buffers (0.5%); 0 WAL file(s) added, 0 removed, 0 recycled; write=8.872 s, sync=0.031 s, total=8.912 s; sync files=60, longest=0.003 s, average=0.001 s; distance=354 kB, estimate=4173 kB
+2026-09-16 04:01:50.939 UTC [159] LOG:  checkpoint starting: time
+2026-09-16 04:02:06.067 UTC [159] LOG:  checkpoint complete: wrote 145 buffers (0.9%); 0 WAL file(s) added, 0 removed, 0 recycled; write=14.748 s, sync=0.157 s, total=15.129 s; sync files=2055, longest=0.004 s, average=0.001 s; distance=2000 kB, estimate=3956 kB
+2026-09-16 04:06:51.011 UTC [159] LOG:  checkpoint starting: time
+2026-09-16 04:07:07.684 UTC [159] LOG:  checkpoint complete: wrote 161 buffers (1.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=16.423 s, sync=0.167 s, total=16.674 s; sync files=2039, longest=0.002 s, average=0.001 s; distance=2327 kB, estimate=3793 kB

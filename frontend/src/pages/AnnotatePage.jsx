@@ -20,11 +20,14 @@ export default function AnnotatePage() {
   const [mode, setMode] = useState('draw') // draw | erase
   const [conflict, setConflict] = useState(null)
   const [msg, setMsg] = useState('')
+  const [loadError, setLoadError] = useState('')
 
   const canvasRef = useRef()
   const maskRef = useRef()   // offscreen canvas holding the editable mask
   const imgRef = useRef()    // offscreen image
   const drawing = useRef(false)
+  const authorRef = useRef(author)
+  authorRef.current = author
 
   const redraw = useCallback((conflictRegions) => {
     const canvas = canvasRef.current
@@ -60,12 +63,15 @@ export default function AnnotatePage() {
   }, [ann])
 
   const loadAll = useCallback(async () => {
-    const a = await api.getAnnotation(id)
+    const a = await api.getAnnotation(id, authorRef.current)
     setAnn(a)
+    setLoadError('')
+    // a double-blind side belongs to its assignee; lock the identity to it
+    if (a.arbitration) setAuthor(a.assignee)
     setBaseVersion(a.current_version)
     const img = await loadImage(api.imageUrl(a.image_id, a.image_revision))
     imgRef.current = img
-    const maskImg = await loadImage(api.maskUrl(id, a.current_version))
+    const maskImg = await loadImage(api.maskUrl(id, a.current_version, a.arbitration ? a.assignee : undefined))
     const mc = document.createElement('canvas')
     mc.width = img.width; mc.height = img.height
     mc.getContext('2d').drawImage(maskImg, 0, 0)
@@ -76,7 +82,9 @@ export default function AnnotatePage() {
     redraw()
   }, [id, redraw])
 
-  useEffect(() => { loadAll().catch(e => setMsg(e.message)) }, [loadAll])
+  useEffect(() => {
+    loadAll().catch(e => { setLoadError(e.message); setMsg(e.message) })
+  }, [loadAll])
   useEffect(() => { redraw(conflict?.conflicts?.flatMap(c => c.regions)) }, [ann, conflict, redraw])
 
   const paint = (e) => {
@@ -115,25 +123,57 @@ export default function AnnotatePage() {
     } catch (e) { setMsg(e.message) }
   }
 
+  const submitArbitration = async () => {
+    try {
+      await api.submitArbitrationSide(ann.arbitration.id, author)
+      setMsg('已提交仲裁，结果已冻结等待对方与裁定'); loadAll()
+    } catch (e) { setMsg(e.message) }
+  }
+
+  if (loadError && !ann) {
+    return (
+      <div>
+        <h2>修边 · 标注 #{id}</h2>
+        <p className="error">{loadError}</p>
+        <div className="toolbar">
+          <label>作者 <input value={author} onChange={e => setAuthor(e.target.value)} size={8} /></label>
+          <button onClick={() => loadAll().catch(e => setLoadError(e.message))}>以该身份重试</button>
+        </div>
+      </div>
+    )
+  }
   if (!ann) return <p>加载中…</p>
   const conflictRegions = conflict?.conflicts?.flatMap(c => c.regions)
+  const blind = ann.arbitration
 
   return (
     <div>
-      <h2>修边 · 标注 #{ann.id}（{ann.label}）</h2>
+      <h2>
+        修边 · 标注 #{ann.id}（{ann.label}）
+        {blind && <span className="badge">双盲 {blind.side.toUpperCase()} 侧 · 仲裁 #{blind.id}</span>}
+      </h2>
       <div className="toolbar">
-        <label>作者 <input value={author} onChange={e => setAuthor(e.target.value)} size={8} /></label>
+        <label>作者 <input value={author} onChange={e => setAuthor(e.target.value)} size={8} disabled={!!blind} /></label>
         <label>笔刷 <input type="range" min="2" max="60" value={brush}
           onChange={e => setBrush(+e.target.value)} /> {brush}px</label>
         <button onClick={() => setMode('draw')} disabled={mode === 'draw'}>涂抹</button>
         <button onClick={() => setMode('erase')} disabled={mode === 'erase'}>擦除</button>
         <button className="primary" onClick={() => save()}>保存（基于 v{baseVersion}）</button>
-        <button onClick={submit} disabled={ann.status !== 'draft' && ann.status !== 'changes_requested'}>
-          提交复核
-        </button>
+        {blind ? (
+          <button onClick={submitArbitration} disabled={blind.submitted}>
+            {blind.submitted ? '已提交仲裁' : '提交仲裁（提交后冻结）'}
+          </button>
+        ) : (
+          <button onClick={submit} disabled={ann.status !== 'draft' && ann.status !== 'changes_requested'}>
+            提交复核
+          </button>
+        )}
         <span className="badge">{ann.status}</span>
         {msg && <span className={msg.startsWith('已') ? 'ok' : 'error'}>{msg}</span>}
       </div>
+      {blind && (
+        <p className="region-list">双盲隔离中：你看不到对方的标注，对方也看不到你的。提交后该侧冻结，等待双方提交后由仲裁者裁定。</p>
+      )}
       {ann.open_regions.length > 0 && (
         <p className="region-list">复核退回 {ann.open_regions.length} 处区域（橙色框），修改覆盖这些区域后重新提交才会解除。</p>
       )}
