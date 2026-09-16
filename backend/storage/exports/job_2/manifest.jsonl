@@ -1,0 +1,2 @@
+{"annotation_id": 2, "version": 3, "label": "cat", "image": "images/ann2_v3.png", "mask": "masks/ann2_v3.png", "mask_sha256": "a39f1ddc79ab8126c584ee18cb3389a9f47dec8c1ca1a9c8fed77ecdd51950e0"}
+{"annotation_id": 3, "version": 3, "label": "cat", "image": "images/ann3_v3.png", "mask": "masks/ann3_v3.png", "mask_sha256": "a39f1ddc79ab8126c584ee18cb3389a9f47dec8c1ca1a9c8fed77ecdd51950e0"}

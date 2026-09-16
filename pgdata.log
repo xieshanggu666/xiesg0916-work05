@@ -1,0 +1,13 @@
+2026-09-15 17:00:25.729 UTC [489] LOG:  starting PostgreSQL 15.18 (Debian 15.18-0+deb12u1) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit
+2026-09-15 17:00:25.729 UTC [489] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2026-09-15 17:00:25.735 UTC [489] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2026-09-15 17:00:25.738 UTC [492] LOG:  database system was shut down at 2026-09-15 17:00:25 UTC
+2026-09-15 17:00:25.740 UTC [489] LOG:  database system is ready to accept connections
+2026-09-15 17:05:25.813 UTC [490] LOG:  checkpoint starting: time
+2026-09-15 17:08:52.729 UTC [490] LOG:  checkpoint complete: wrote 1992 buffers (12.2%); 1 WAL file(s) added, 0 removed, 0 recycled; write=206.819 s, sync=0.054 s, total=206.917 s; sync files=766, longest=0.003 s, average=0.001 s; distance=10183 kB, estimate=10183 kB
+2026-09-16 01:28:20.966 UTC [4295] ERROR:  invalid input value for enum exportstatus: "running" at character 31
+2026-09-16 01:28:20.966 UTC [4295] STATEMENT:  UPDATE export_jobs SET status='running', heartbeat_at=now() - interval '10 minutes' WHERE id=(SELECT max(id) FROM export_jobs);
+2026-09-16 01:30:32.478 UTC [490] LOG:  checkpoint starting: time
+2026-09-16 01:30:46.106 UTC [490] LOG:  checkpoint complete: wrote 133 buffers (0.8%); 0 WAL file(s) added, 0 removed, 0 recycled; write=13.601 s, sync=0.011 s, total=13.628 s; sync files=120, longest=0.002 s, average=0.001 s; distance=976 kB, estimate=9262 kB
+2026-09-16 01:35:32.154 UTC [490] LOG:  checkpoint starting: time
+2026-09-16 01:35:44.040 UTC [490] LOG:  checkpoint complete: wrote 116 buffers (0.7%); 0 WAL file(s) added, 0 removed, 1 recycled; write=11.813 s, sync=0.060 s, total=11.887 s; sync files=117, longest=0.004 s, average=0.001 s; distance=757 kB, estimate=8412 kB
